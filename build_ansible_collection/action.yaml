@@ -14,10 +14,10 @@ inputs:
 outputs:
   tar_file:
     description: The collection tarball when built
-    value: ${{ collection_namespace }}-${{ collection_name }}-${{ collection_version }}.tar.gz
+    value: ${{ steps.keys.outputs.namespace }}-${{ steps.keys.outputs.name }}-${{ steps.keys.outputs.version }}.tar.gz
   collection_path:
     description: The final collection path
-    value: /home/runner/collections/ansible_collections/${{ collection_namespace }}/${{ collection_name }}
+    value: /home/runner/collections/ansible_collections/${{ steps.keys.outputs.namespace }}/${{ steps.keys.outputs.name }}
 
 runs:
   using: composite
@@ -25,6 +25,16 @@ runs:
     - name: template galaxy file
       run: ansible all -i local -m template -a "src=galaxy.yml.j2 dest=galaxy.yml"
       shell: bash
+
+    - name: Extract metadata from galaxy.yml
+      id: keys
+      run: |
+        echo "::set-output name=namespace::$(yq -r '.namespace' 'galaxy.yml')"
+        echo "::set-output name=name::$(yq -r '.name' 'galaxy.yml')"
+        echo "::set-output name=version::$(yq -r '.version' 'galaxy.yml')"
+        echo "::set-output name=dependency::$(yq -r '.dependencies | keys | join(" ")' 'galaxy.yml')"
+      shell: bash
+      working-directory: ${{ inputs.source_path }}
 
     - name: Build collection
       run: ansible-galaxy collection build -vvv
